@@ -33,6 +33,7 @@ window.addEventListener('load', async () => {
         let NitFacturante = document.getElementById('NitFacturante').value;
         let CiudadFacturante = document.getElementById('CiudadFacturante').value;
         let TelefonoFacturante = document.getElementById('TelefonoFacturante').value;
+        let TextoFinal = "Date: 28/11/2025                                         Resleased by: Group Quality Manager \nVersion:1 "
         var error= document.getElementById('error');
 
         if (document.getElementById('FacturanteSi').checked) {
@@ -161,7 +162,7 @@ window.addEventListener('load', async () => {
 
         generatePDF( NombreSolicitante, Nit, TelefonoContacto, Direccion,Ciudad,PersonaContacto,NombreFacturante,NitFacturante,CiudadFacturante,TelefonoFacturante, fact,matriz,fecha, codigo,multiresiduo,antimonio,arsenico,boro,cadmio,cinc,cobre,cromo,estaño,hierro, magnesio,manganeso,mercurio,plata, plomo,selenio,sodio,potasio,metalesSi
                     ,acrilamida,AFL,AFLM,AFLOTA,amitraz,bromuro,ciromazina,clorato,cloratos,cloruro,cloro,DIOX_PCBDs,ditios,ditiosLow,DON,doscuatroD,DTCAN,ETH,ETHOX,FAL,FLON,FLUO,FOLP,fosetyl,FUM,GCCAN,GGA,GMOS,LCCAN,LHR,MC1,MEL,MINO,NEG,NIT,NITRI,OTA,PAH,patulina,PER,PHOS,QU1,QU2,RAD1,S421,SULFA,SULFI,SULFLU,VINAC,ZEA,
-                    anotaciones,fechaenvio,enviante,normal,express,urgente
+                    anotaciones,fechaenvio,enviante,normal,express,urgente,TextoFinal
 
                     
                      
@@ -254,7 +255,7 @@ Object.entries(mensajesPopup).forEach(([id, mensaje]) => {
 
 async function generatePDF(NombreSolicitante, Nit, TelefonoContacto, Direccion, Ciudad,PersonaContacto,NombreFacturante,NitFacturante,CiudadFacturante,TelefonoFacturante,fact, matriz,fecha,codigo, multiresiduo,antimonio,arsenico,boro,cadmio,cinc,cobre,cromo,estaño,hierro, magnesio,manganeso,mercurio,plata, plomo,selenio,sodio,potasio, metalesSi
                             ,acrilamida,AFL,AFLM,AFLOTA,amitraz,bromuro,ciromazina,clorato,cloratos,cloruro,cloro,DIOX_PCBDs,ditios,ditiosLow,DON,doscuatroD,DTCAN,ETH,ETHOX,FAL,FLON,FLUO,FOLP,fosetyl,FUM,GCCAN,GGA,GMOS,LCCAN,LHR,MC1,MEL,MINO,NEG,NIT,NITRI,OTA,PAH,patulina,PER,PHOS,QU1,QU2,RAD1,S421,SULFA,SULFI,SULFLU,VINAC,ZEA,
-                            anotaciones,fechaenvio,enviante,normal,express,urgente
+                            anotaciones,fechaenvio,enviante,normal,express,urgente,TextoFinal
 
                       
                           
@@ -377,7 +378,9 @@ async function generatePDF(NombreSolicitante, Nit, TelefonoContacto, Direccion, 
    
     pdf.text(fechaenvio, 240, 600);
     pdf.text(enviante, 435, 600);
-  
+    pdf.setFontSize(7);
+    pdf.setTextColor(150, 150, 150)
+    pdf.text(TextoFinal, 50, 760); 
 
     pdf.save("Solicitud_Analisis_PRIMORIS.pdf");
 }
