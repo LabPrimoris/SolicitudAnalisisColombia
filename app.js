@@ -224,10 +224,10 @@ function showInfoPopup(message) {
 // 🧾 Mensajes por método
 const mensajesPopup = {
   MINO: '⚠️ Para este análisis la muestra debe enviarse en <b>frasco de vidrio</b> y con <b>aluminio en la tapa</b> para evitar contacto con materiales plásticos.',
-  ETHOX: '⚠️ Esta muestra debe enviarse en un <b>empaque herméticamente sellado</b>.',
-  PHOS: '⚠️ Esta muestra debe enviarse en un <b>empaque herméticamente sellado</b>.',
-  SULFI: '⚠️ Esta muestra debe enviarse en un <b>empaque herméticamente sellado</b>.',
-  VINAC: '⚠️ Esta muestra debe enviarse en un <b>empaque herméticamente sellado</b>.',
+  ETHOX: '⚠️ Esta muestra debe enviarse de forma independiente para este método en un <b>empaque herméticamente sellado</b>.',
+  PHOS: '⚠️ Esta muestra debe enviarse de forma independiente para este método en un <b>empaque herméticamente sellado</b>.',
+  SULFI: '⚠️ Esta muestra debe enviarse de forma independiente para este método en un <b>empaque herméticamente sellado</b>.',
+  VINAC: '⚠️ Esta muestra debe enviarse de forma independiente para este método en un <b>empaque herméticamente sellado</b>.',
   CLTOT: '⚠️ Para este método es necesario enviar la <b>muestra de forma independiente</b>.'
 };
 
