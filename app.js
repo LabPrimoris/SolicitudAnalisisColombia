@@ -193,7 +193,7 @@ window.addEventListener('load', () => {
         // Disparar descarga del PDF automáticamente
         document.getElementById("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 
-        const destinatarios = "registro@primoris-lab.ec;luz.romero@primoris-lab.ec;christian.velasco@primoris-lab.ec";
+        const destinatarios = "registro@primoris-lab.co;servicioalcliente@primoris-lab.co";
         const asunto = `Solicitud de servicio / Demanda de análisis ${nombre}`;
         const cuerpo =
             `Cordial saludo, Adjunto solicitud de servicio para ${nombre}.\n\n` +
