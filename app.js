@@ -1,271 +1,222 @@
-function loadImage(url) {
-    return new Promise(resolve => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.responseType = "blob";
-        xhr.onload = function (e) {
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const res = event.target.result;
-                resolve(res);
-            }
-            const file = this.response;
-            reader.readAsDataURL(file);
-        }
-        xhr.send();
-    });}
+ // ── Set global de análisis seleccionados (lo usan las tarjetas del index.html) ──
+const analisisSeleccionados = new Set();
 
-let signaturePad = null;
+// Códigos que SÍ permiten servicio urgente / extra urgente
+const CODIGOS_URGENTE_PERMITIDOS = new Set([
+    'GMS + LMS', 'LMS', 'GMS', 'GMSL + LMSL', 'GGA', 'CS2', 'DTC'
+]);
 
-window.addEventListener('load', async () => {
+function actualizarDisponibilidadUrgente() {
+    // Hay análisis seleccionado que NO está en la lista permitida?
+    const hayNoPermitido = [...analisisSeleccionados].some(val => {
+        const match = val.match(/^\(([^)]+)\)/);
+        if (!match) return true; // sin código entre paréntesis → no permitido
+        return !CODIGOS_URGENTE_PERMITIDOS.has(match[1].trim());
+    });
+
+    const btn36    = document.getElementById('urgente36');
+    const btnExtra = document.getElementById('extraurgente');
+    const wrap36   = btn36   && btn36.closest('.form-check');
+    const wrapExtra= btnExtra && btnExtra.closest('.form-check');
+    const aviso    = document.getElementById('aviso-urgente');
+
+    if (hayNoPermitido) {
+        // Si estaba marcado un urgente, vuelve a Normal
+        if (btn36   && btn36.checked)   { btn36.checked   = false; document.getElementById('normal').checked = true; }
+        if (btnExtra && btnExtra.checked){ btnExtra.checked = false; document.getElementById('normal').checked = true; }
+        if (btn36)    btn36.disabled    = true;
+        if (btnExtra) btnExtra.disabled = true;
+        if (wrap36)   { wrap36.style.opacity = '0.35'; wrap36.style.pointerEvents = 'none'; }
+        if (wrapExtra) { wrapExtra.style.opacity = '0.35'; wrapExtra.style.pointerEvents = 'none'; }
+        if (aviso)    aviso.style.display = 'none';
+    } else {
+        if (btn36)    btn36.disabled    = false;
+        if (btnExtra) btnExtra.disabled = false;
+        if (wrap36)   { wrap36.style.opacity = ''; wrap36.style.pointerEvents = ''; }
+        if (wrapExtra) { wrapExtra.style.opacity = ''; wrapExtra.style.pointerEvents = ''; }
+        if (aviso)    aviso.style.display = '';
+    }
+}
+
+function toggleAnalisis(card, value) {
+    if (card.classList.contains('selected')) {
+        card.classList.remove('selected');
+        analisisSeleccionados.delete(value);
+    } else {
+        card.classList.add('selected');
+        analisisSeleccionados.add(value);
+    }
+    actualizarResumen();
+    verificarAlertaEspecial(card);
+    actualizarDisponibilidadUrgente();
+}
+
+function actualizarResumen() {
+    const el = document.getElementById('analisis-resumen');
+    if (!el) return;
+    if (analisisSeleccionados.size === 0) {
+        el.innerHTML = '<span style="color:#aaa;">Ningún análisis seleccionado aún.</span>';
+    } else {
+        const tags = [...analisisSeleccionados].map(v => {
+            const code = v.match(/\(([^)]+)\)/);
+            const label = code ? code[1] : v.split(' ')[0];
+            return `<span class="resumen-tag">${label}</span>`;
+        }).join('');
+        el.innerHTML = `<span class="resumen-titulo">${analisisSeleccionados.size} análisis seleccionado${analisisSeleccionados.size > 1 ? 's' : ''}:</span>${tags}`;
+    }
+}
+
+// ── Alertas especiales por tarjeta ──
+const alertasEspeciales = {
+    'card-mino':  '⚠️ Para este análisis la muestra debe enviarse en <b>frasco de vidrio</b> y con <b>aluminio en la tapa</b> para evitar contacto con materiales plásticos.',
+    'card-ethox': '⚠️ Esta muestra debe enviarse en un <b>empaque herméticamente sellado</b>.',
+    'card-phos':  '⚠️ Esta muestra debe enviarse en un <b>empaque herméticamente sellado</b>.',
+    'card-sulfi': '⚠️ Esta muestra debe enviarse en un <b>empaque herméticamente sellado</b>.',
+    'card-vinac': '⚠️ Esta muestra debe enviarse en un <b>empaque herméticamente sellado</b>.',
+    'card-cloro': '⚠️ Para este método es necesario enviar la <b>muestra de forma independiente</b>.'
+    
+};
+
+function verificarAlertaEspecial(card) {
+    if (!card.classList.contains('selected')) return;
+    const id = card.id;
+    if (id && alertasEspeciales[id]) showInfoPopup(alertasEspeciales[id]);
+}
+
+function showInfoPopup(message) {
+    if (document.getElementById('__popup_overlay__')) return;
+    const overlay = document.createElement('div');
+    overlay.id = '__popup_overlay__';
+    Object.assign(overlay.style, {
+        position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
+        background: 'rgba(0,0,0,0.45)', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', zIndex: 9999
+    });
+    const box = document.createElement('div');
+    Object.assign(box.style, {
+        background: '#fff', padding: '18px', borderRadius: '10px',
+        maxWidth: '480px', boxShadow: '0 8px 30px rgba(0,0,0,0.25)', textAlign: 'left'
+    });
+    const p = document.createElement('p');
+    p.style.margin = '0 0 12px';
+    p.innerHTML = message;
+    box.appendChild(p);
+    const btn = document.createElement('button');
+    btn.textContent = 'Entendido';
+    Object.assign(btn.style, {
+        background: '#3B6D11', color: '#fff', border: 'none',
+        padding: '8px 14px', borderRadius: '8px', cursor: 'pointer'
+    });
+    btn.addEventListener('click', () => document.body.removeChild(overlay));
+    box.appendChild(btn);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+}
+
+// ── Pestañas ──
+function switchAnalisisTab(name, btn) {
+    document.querySelectorAll('.analisis-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.analisis-tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    btn.classList.add('active');
+}
+
+// ── Carga imagen para PDF ──
+async function loadImage(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('No se pudo cargar la imagen: ' + url);
+    const blob = await r.blob();
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+// ── Evento submit del formulario ──
+window.addEventListener('load', () => {
 
     const form = document.querySelector('#form');
     form.addEventListener('submit', (e) => {
         e.preventDefault();
-  
-        let NombreSolicitante = document.getElementById('NombreSolicitante').value;
-        let Nit = document.getElementById('Nit').value;
-        let Direccion = document.getElementById('Direccion').value;
-        let Ciudad = document.getElementById('Ciudad').value;
-        let PersonaContacto = document.getElementById('PersonaContacto').value;
-        let TelefonoContacto = document.getElementById('TelefonoContacto').value;
-        let NombreFacturante = document.getElementById('NombreFacturante').value;
-        let NitFacturante = document.getElementById('NitFacturante').value;
-        let CiudadFacturante = document.getElementById('CiudadFacturante').value;
-        let TelefonoFacturante = document.getElementById('TelefonoFacturante').value;
-        let TextoFinal = "Date: 28/11/2025                                         Resleased by: Group Quality Manager \nVersion:1 "
-        var error= document.getElementById('error');
 
+        const NombreSolicitante = document.getElementById('NombreSolicitante').value;
+        const Nit               = document.getElementById('Nit').value;
+        const Direccion         = document.getElementById('Direccion').value;
+        const Ciudad            = document.getElementById('Ciudad').value;
+        const PersonaContacto   = document.getElementById('PersonaContacto').value;
+        const TelefonoContacto  = document.getElementById('TelefonoContacto').value;
+
+        let NombreFacturante, NitFacturante, CiudadFacturante, TelefonoFacturante;
         if (document.getElementById('FacturanteSi').checked) {
-            NombreFacturante = NombreSolicitante
-            NitFacturante= Nit
-            CiudadFacturante= Ciudad
-            TelefonoFacturante= TelefonoContacto
-
+            NombreFacturante   = NombreSolicitante;
+            NitFacturante      = Nit;
+            CiudadFacturante   = Ciudad;
+            TelefonoFacturante = TelefonoContacto;
         } else {
-            NombreFacturante = NombreFacturante
-            NitFacturante= NitFacturante 
-            CiudadFacturante= CiudadFacturante  
-            TelefonoFacturante= TelefonoFacturante                  
+            NombreFacturante   = document.getElementById('NombreFacturante').value;
+            NitFacturante      = document.getElementById('NitFacturante').value;
+            CiudadFacturante   = document.getElementById('CiudadFacturante').value;
+            TelefonoFacturante = document.getElementById('TelefonoFacturante').value;
         }
 
-        if (document.getElementById('FacturanteNo').checked) {
-            NombreFacturante = NombreFacturante
-            NitFacturante= NitFacturante 
-            CiudadFacturante= CiudadFacturante  
-            TelefonoFacturante= TelefonoFacturante
+        const fact        = document.getElementById('fact').value;
+        const matriz      = document.getElementById('matriz').value;
+        const fecha       = document.getElementById('fecha').value;
+        const codigo      = document.getElementById('codigo').value;
+        const anotaciones   = document.getElementById('anotaciones').value;
+        const fechaenvio    = document.getElementById('fechaenvio').value;
+        const enviante      = document.getElementById('enviante').value;
+        const servicioEl    = document.querySelector('input[name="tipoServicio"]:checked');
+        const tipoServicio  = servicioEl ? servicioEl.value : 'normal';
 
-        } else {
-            NombreFacturante = NombreSolicitante
-            NitFacturante= Nit
-            CiudadFacturante= Ciudad
-            TelefonoFacturante =TelefonoContacto
-        }
+        const todosAnalisis = [...analisisSeleccionados];
 
-        let fact = document.getElementById('fact').value;
-
-        let matriz = document.getElementById('matriz').value;
-        let fecha= document.getElementById('fecha').value;
-        let codigo= document.getElementById('codigo').value;
-
-  
-        
- 
-        let multiresiduo = document.getElementById('multiresiduo').value;
-
-       
-      
-        let antimonio = document.getElementById('antimonio').value;
-        let arsenico = document.getElementById('arsenico').value;
-        let boro = document.getElementById('boro').value;
-        let cadmio = document.getElementById('cadmio').value;
-        let cinc = document.getElementById('cinc').value;
-        let cobre = document.getElementById('cobre').value;
-        let cromo = document.getElementById('cromo').value;
-        let estaño = document.getElementById('estaño').value;
-        let hierro = document.getElementById('hierro').value;
-        let magnesio = document.getElementById('magnesio').value;
-        let manganeso = document.getElementById('manganeso').value;
-        let mercurio = document.getElementById('mercurio').value;
-        let plata = document.getElementById('plata').value;
-        let plomo = document.getElementById('plomo').value;
-        let selenio = document.getElementById('selenio').value;
-        let sodio = document.getElementById('sodio').value;
-        let potasio = document.getElementById('potasio').value;
-        let metalesSi = document.getElementById('metalesSi');
-
-        
-        let acrilamida = document.getElementById('acrilamida').checked ? document.getElementById('acrilamida').value : '';
-        let AFL = document.getElementById('AFL').checked ? document.getElementById('AFL').value : '';
-        let AFLM = document.getElementById('AFLM').checked ? document.getElementById('AFLM').value : '';
-        let AFLOTA = document.getElementById('AFLOTA').checked ? document.getElementById('AFLOTA').value : '';
-        let amitraz = document.getElementById('amitraz').checked ? document.getElementById('amitraz').value : '';
-        let bromuro = document.getElementById('bromuro').checked ? document.getElementById('bromuro').value : '';
-        let ciromazina = document.getElementById('ciromazina').checked ? document.getElementById('ciromazina').value : '';
-        let clorato = document.getElementById('clorato').checked ? document.getElementById('clorato').value : '';
-        let cloratos = document.getElementById('cloratos').checked ? document.getElementById('cloratos').value : '';
-        let cloruro = document.getElementById('cloruro').checked ? document.getElementById('cloruro').value : '';
-        let cloro = document.getElementById('cloro').checked ? document.getElementById('cloro').value : '';
-        let DIOX_PCBDs = document.getElementById('DIOX_PCBDs').checked ? document.getElementById('DIOX_PCBDs').value : '';
-        let ditios = document.getElementById('ditios').checked ? document.getElementById('ditios').value : '';
-        let ditiosLow = document.getElementById('ditiosLow').checked ? document.getElementById('ditiosLow').value : '';
-        let DTCAN = document.getElementById('DTCAN').checked ? document.getElementById('DTCAN').value : '';
-        let DON = document.getElementById('DON').checked ? document.getElementById('DON').value : '';
-        let doscuatroD = document.getElementById('doscuatroD').checked ? document.getElementById('doscuatroD').value : '';
-        let ETH = document.getElementById('ETH').checked ? document.getElementById('ETH').value : '';
-        let ETHOX = document.getElementById('ETHOX').checked ? document.getElementById('ETHOX').value : '';
-        let FAL = document.getElementById('FAL').checked ? document.getElementById('FAL').value : '';
-        let FLON = document.getElementById('FLON').checked ? document.getElementById('FLON').value : '';
-        let FLUO = document.getElementById('FLUO').checked ? document.getElementById('FLUO').value : '';
-        let FOLP = document.getElementById('FOLP').checked ? document.getElementById('FOLP').value : '';
-        let fosetyl = document.getElementById('fosetyl').checked ? document.getElementById('fosetyl').value : '';
-        let FUM = document.getElementById('FUM').checked ? document.getElementById('FUM').value : '';
-        let GCCAN = document.getElementById('GCCAN').checked ? document.getElementById('GCCAN').value : '';
-        let GGA = document.getElementById('GGA').checked ? document.getElementById('GGA').value : '';
-        let GMOS = document.getElementById('GMOS').checked ? document.getElementById('GMOS').value : '';
-        let LCCAN = document.getElementById('LCCAN').checked ? document.getElementById('LCCAN').value : '';
-        let LHR = document.getElementById('LHR').checked ? document.getElementById('LHR').value : '';
-        let MC1 = document.getElementById('MC1').checked ? document.getElementById('MC1').value : '';
-        let MEL = document.getElementById('MEL').checked ? document.getElementById('MEL').value : '';
-        let MINO = document.getElementById('MINO').checked ? document.getElementById('MINO').value : '';
-        let NEG = document.getElementById('NEG').checked ? document.getElementById('NEG').value : '';
-        let NIT = document.getElementById('NIT').checked ? document.getElementById('NIT').value : '';
-        let NITRI = document.getElementById('NITRI').checked ? document.getElementById('NITRI').value : '';
-        let OTA = document.getElementById('OTA').checked ? document.getElementById('OTA').value : '';
-        let PAH = document.getElementById('PAH').checked ? document.getElementById('PAH').value : '';
-        let patulina = document.getElementById('patulina').checked ? document.getElementById('patulina').value : '';
-        let PER = document.getElementById('PER').checked ? document.getElementById('PER').value : '';
-        let PHOS = document.getElementById('PHOS').checked ? document.getElementById('PHOS').value : '';
-        let QU1 = document.getElementById('QU1').checked ? document.getElementById('QU1').value : '';
-        let QU2 = document.getElementById('QU2').checked ? document.getElementById('QU2').value : '';
-        let RAD1 = document.getElementById('RAD1').checked ? document.getElementById('RAD1').value : '';
-        let S421 = document.getElementById('S421').checked ? document.getElementById('S421').value : '';
-        let SULFA = document.getElementById('SULFA').checked ? document.getElementById('SULFA').value : '';
-        let SULFI = document.getElementById('SULFI').checked ? document.getElementById('SULFI').value : '';
-        let SULFLU = document.getElementById('SULFLU').checked ? document.getElementById('SULFLU').value : '';
-        let VINAC = document.getElementById('VINAC').checked ? document.getElementById('VINAC').value : '';
-        let ZEA = document.getElementById('ZEA').checked ? document.getElementById('ZEA').value : '';
-
-
-
-
-
-        let anotaciones = document.getElementById('anotaciones').value; // observaciones
-        let fechaenvio = document.getElementById('fechaenvio').value;
-        let enviante = document.getElementById('enviante').value;
-        let normal = document.getElementById('normal').value;
-        let express = document.getElementById('express').value;
-        let urgente = document.getElementById('urgente').value;
-
-        
-        
-
-        generatePDF( NombreSolicitante, Nit, TelefonoContacto, Direccion,Ciudad,PersonaContacto,NombreFacturante,NitFacturante,CiudadFacturante,TelefonoFacturante, fact,matriz,fecha, codigo,multiresiduo,antimonio,arsenico,boro,cadmio,cinc,cobre,cromo,estaño,hierro, magnesio,manganeso,mercurio,plata, plomo,selenio,sodio,potasio,metalesSi
-                    ,acrilamida,AFL,AFLM,AFLOTA,amitraz,bromuro,ciromazina,clorato,cloratos,cloruro,cloro,DIOX_PCBDs,ditios,ditiosLow,DON,doscuatroD,DTCAN,ETH,ETHOX,FAL,FLON,FLUO,FOLP,fosetyl,FUM,GCCAN,GGA,GMOS,LCCAN,LHR,MC1,MEL,MINO,NEG,NIT,NITRI,OTA,PAH,patulina,PER,PHOS,QU1,QU2,RAD1,S421,SULFA,SULFI,SULFLU,VINAC,ZEA,
-                    anotaciones,fechaenvio,enviante,normal,express,urgente,TextoFinal
-
-                    
-                     
-            );
-    })
-
-// 💡 Mantiene el mismo estilo del popup que ya funcionaba para MINO
-function showInfoPopup(message) {
-  // Evitar que se duplique si ya hay uno abierto
-  if (document.getElementById('__popup_overlay__')) return;
-
-  const overlay = document.createElement('div');
-  overlay.id = '__popup_overlay__';
-  Object.assign(overlay.style, {
-    position: 'fixed',
-    top: '0',
-    left: '0',
-    width: '100%',
-    height: '100%',
-    background: 'rgba(0,0,0,0.45)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 9999
-  });
-
-  const box = document.createElement('div');
-  Object.assign(box.style, {
-    background: '#fff',
-    padding: '18px',
-    borderRadius: '10px',
-    maxWidth: '480px',
-    boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
-    textAlign: 'left'
-  });
-
-  const p = document.createElement('p');
-  p.style.margin = '0 0 12px';
-  p.innerHTML = message;
-  box.appendChild(p);
-
-  const btn = document.createElement('button');
-  btn.textContent = 'Entendido';
-  Object.assign(btn.style, {
-    background: '#4e9af1',
-    color: '#fff',
-    border: 'none',
-    padding: '8px 14px',
-    borderRadius: '8px',
-    cursor: 'pointer'
-  });
-  btn.addEventListener('click', () => document.body.removeChild(overlay));
-  box.appendChild(btn);
-
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-}
-
-// 🧾 Mensajes por método
-const mensajesPopup = {
-  MINO: '⚠️ Para este análisis la muestra debe enviarse en <b>frasco de vidrio</b> y con <b>aluminio en la tapa</b> para evitar contacto con materiales plásticos.',
-  ETHOX: '⚠️ Esta muestra debe enviarse de forma independiente para este método en un <b>empaque herméticamente sellado</b>.',
-  PHOS: '⚠️ Esta muestra debe enviarse de forma independiente para este método en un <b>empaque herméticamente sellado</b>.',
-  SULFI: '⚠️ Esta muestra debe enviarse de forma independiente para este método en un <b>empaque herméticamente sellado</b>.',
-  VINAC: '⚠️ Esta muestra debe enviarse de forma independiente para este método en un <b>empaque herméticamente sellado</b>.',
-  cloro: '⚠️ Para este método es necesario enviar la <b>muestra de forma independiente</b>.'
-};
-
-// 🧩 Asigna el evento a cada checkbox si existe
-Object.entries(mensajesPopup).forEach(([id, mensaje]) => {
-  const chk = document.getElementById(id);
-  if (chk) {
-    chk.addEventListener('change', (e) => {
-      if (e.target.checked) {
-        showInfoPopup(mensaje);
-      }
+        generatePDF(
+            NombreSolicitante, Nit, TelefonoContacto, Direccion, Ciudad, PersonaContacto,
+            NombreFacturante, NitFacturante, CiudadFacturante, TelefonoFacturante,
+            fact, matriz, fecha, codigo,
+            todosAnalisis,
+            anotaciones, fechaenvio, enviante, tipoServicio
+        );
     });
-  } else {
-    console.warn(`⚠️ No se encontró el checkbox con id="${id}"`);
-  }
+
+    // ── Botón correo ──
+    document.getElementById("enviarCorreoBtn").addEventListener("click", function () {
+        const nombre = document.getElementById("NombreSolicitante").value.trim();
+        if (!nombre) {
+            alert("Por favor, completa el campo 'Empresa o persona titular del resultado'.");
+            return;
+        }
+
+        // Disparar descarga del PDF automáticamente
+        document.getElementById("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+
+        const destinatarios = "registro@primoris-lab.ec;luz.romero@primoris-lab.ec;christian.velasco@primoris-lab.ec";
+        const asunto = `Solicitud de servicio / Demanda de análisis ${nombre}`;
+        const cuerpo =
+            `Cordial saludo, Adjunto solicitud de servicio para ${nombre}.\n\n` +
+            `⚠️ ¡IMPORTANTE! ⚠️\n` +
+            `No olvide adjuntar en este correo la solicitud PDF generada.`;
+        window.location.href = `mailto:${destinatarios}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+    });
 });
 
-
-
-
-
-
-    
-});
-
-async function generatePDF(NombreSolicitante, Nit, TelefonoContacto, Direccion, Ciudad,PersonaContacto,NombreFacturante,NitFacturante,CiudadFacturante,TelefonoFacturante,fact, matriz,fecha,codigo, multiresiduo,antimonio,arsenico,boro,cadmio,cinc,cobre,cromo,estaño,hierro, magnesio,manganeso,mercurio,plata, plomo,selenio,sodio,potasio, metalesSi
-                            ,acrilamida,AFL,AFLM,AFLOTA,amitraz,bromuro,ciromazina,clorato,cloratos,cloruro,cloro,DIOX_PCBDs,ditios,ditiosLow,DON,doscuatroD,DTCAN,ETH,ETHOX,FAL,FLON,FLUO,FOLP,fosetyl,FUM,GCCAN,GGA,GMOS,LCCAN,LHR,MC1,MEL,MINO,NEG,NIT,NITRI,OTA,PAH,patulina,PER,PHOS,QU1,QU2,RAD1,S421,SULFA,SULFI,SULFLU,VINAC,ZEA,
-                            anotaciones,fechaenvio,enviante,normal,express,urgente,TextoFinal
-
-                      
-                          
-    ) {
+// ── Generar PDF ──
+async function generatePDF(
+    NombreSolicitante, Nit, TelefonoContacto, Direccion, Ciudad, PersonaContacto,
+    NombreFacturante, NitFacturante, CiudadFacturante, TelefonoFacturante,
+    fact, matriz, fecha, codigo,
+    todosAnalisis,
+    anotaciones, fechaenvio, enviante, tipoServicio
+) {
     const image = await loadImage("imagenes/FormatoSolicitud2.jpg");
-    
-    const pdf = new jsPDF('p', 'pt', [612, 792]);
+    const pdf = new jsPDF('1', 'pt', [612, 792]);
 
     pdf.addImage(image, 'PNG', 0, 0, 612, 792);
-    
+
+    // Datos empresa
     pdf.setFontSize(9);
     pdf.text(NombreSolicitante, 130, 155);
     pdf.text(Nit, 448, 155);
@@ -273,114 +224,86 @@ async function generatePDF(NombreSolicitante, Nit, TelefonoContacto, Direccion, 
     pdf.text(Direccion, 130, 165);
     pdf.text(Ciudad, 448, 165);
     pdf.text(PersonaContacto, 130, 175);
-    pdf.text(TelefonoContacto, 448, 176);
-    pdf.text(CiudadFacturante, 130,217);
+    pdf.text(TelefonoContacto, 448, 175);
+
+    // Datos facturante
     pdf.setFontSize(9);
     pdf.text(NombreFacturante, 130, 205);
     pdf.text(NitFacturante, 448, 205);
-    pdf.text(TelefonoFacturante, 448,227);
-    
     pdf.setFontSize(8);
+    pdf.text(CiudadFacturante, 130, 217);
+    pdf.text(TelefonoFacturante, 448, 217);
     pdf.text(fact, 130, 227);
 
-    
-    pdf.setFontSize(8);
+    // Datos muestra
     pdf.text(matriz, 175, 265);
-    //pdf.text(productor, 220, 280);
     pdf.text(fecha, 448, 263);
     pdf.text(codigo, 175, 280);
-    //pdf.text(sampler, 545, 295);
-    //pdf.text(infadicional, 220, 315);
 
-//   OPCION MEJORADA:
+    // Análisis seleccionados
+    const colCodigo  = 60;
+    const colDesc    = 165;
+    const SPACE_AVAIL = 130;   // pt disponibles entre startY=338 y el borde de la sección siguiente
+    let startY = 338;
 
+    if (todosAnalisis.length > 0) {
+        const n = todosAnalisis.length;
 
-    // --- LISTADO ORGANIZADO ---
-    let startY = 335;   // posición inicial en Y
-    let lineHeight = 10; // salto de línea entre renglones
+        // Tamaño de fuente y alto de fila se reducen cuando hay muchos análisis
+        // Mínimos razonables: fontSize 5.5 pt, rowH 8 pt
+        const fontSize = Math.max(5.5, Math.min(8,   (SPACE_AVAIL / n) * 0.62));
+        const ROW_H    = Math.max(8,   Math.min(14,  SPACE_AVAIL / n));
 
-    pdf.setFontSize(9);
+        // Ancho descripción se recalcula con la fuente elegida
+        const colDescW = 375;
 
-    // --- MULTIRESIDUO ---
-    if (multiresiduo.trim() !== "") {
-    pdf.text("Multiresiduos:", 60, startY);
-    startY += lineHeight;
-    pdf.text("- " + multiresiduo, 75, startY);
-    startY += lineHeight + 7; // un poco más de espacio después del grupo
+        todosAnalisis.forEach((analisis, i) => {
+            if (i % 2 === 0) {
+                pdf.setFillColor(246, 250, 244);
+                pdf.rect(colCodigo - 4, startY - ROW_H + 2, 490, ROW_H, 'F');
+            }
+
+            const matchCodigo = analisis.match(/^\(([^)]+)\)/);
+            const codigo_pdf  = matchCodigo ? matchCodigo[1] : analisis.split(' ').slice(0, 2).join(' ');
+            const desc_pdf    = matchCodigo
+                ? analisis.replace(/^\([^)]+\)\s*/, '').trim()
+                : analisis;
+
+            pdf.setFontSize(fontSize);
+            pdf.setFont(undefined, 'bold');
+            pdf.setTextColor(45, 90, 15);
+            pdf.text(codigo_pdf, colCodigo, startY);
+
+           pdf.setFont(undefined, 'normal');
+            pdf.setTextColor(30, 30, 30);
+            // Con fuente pequeña las descripciones caben en 1 línea; splitTextToSize lo confirma
+            const descLines = pdf.splitTextToSize(desc_pdf, colDescW);
+            pdf.text(descLines[0], colDesc, startY);   // solo primera línea para respetar el ROW_H dinámico
+
+            startY += ROW_H;
+        });
     }
 
-
-    // --- METALES ---
-    const metals = [
-    'antimonio', 'arsenico', 'boro', 'cadmio', 'cinc', 'cobre','cromo',
-    'estaño','hierro','magnesio','manganeso','mercurio','plata','plomo',
-    'selenio','sodio','potasio'
-    ];
-
-    const selectedValues = metals
-    .filter(metalId => document.getElementById(metalId).checked)  
-    .map(metalId => document.getElementById(metalId).value)  
-    .filter(value => value.trim() !== '');
-    
-    if (selectedValues.length > 0) {
-    pdf.text("Metales:", 60, startY);
-    startY += lineHeight;
-    pdf.text("                              - " + selectedValues.join(", "), 70, startY);
-    startY += lineHeight + 7; 
-    }
-
-    // --- OTROS ---
-    const otrosIds = ["acrilamida","AFL","AFLM","AFLOTA","amitraz","bromuro","ciromazina","clorato","cloratos","cloruro","cloro","DIOX_PCBDs","ditios","ditiosLow","DON","doscuatroD","DTCAN","ETH","ETHOX","FAL","FLON","FLUO","FOLP","fosetyl","FUM","GCCAN","GGA","GMOS","LCCAN","LHR","MC1","MEL","MINO","NEG","NIT","NITRI","OTA","PAH","patulina","PER","PHOS","QU1","QU2","RAD1","S421","SULFA","SULFI","SULFLU","VINAC","ZEA"
-    ];
-
-    const otrosSeleccionados = otrosIds
-    .map(id => {
-        const el = document.getElementById(id);
-        return el && el.checked ? el.value : null;
-    })
-    .filter(v => v !== null);
-
-    if (otrosSeleccionados.length > 0) {
-    pdf.text("Otros:", 60, startY);
-    startY += lineHeight;
-    otrosSeleccionados.forEach(o => {
-        pdf.text("- " + o, 75, startY);
-        startY += lineHeight;
-    });
-    startY += 7;
-    }
-    
-    
-// FIN OPCION MEJORADA
-
+    // Orgánico
     const orgSi = document.getElementById('OrgSi');
     const orgNo = document.getElementById('OrgNo');
-    if (orgSi.checked) {
-    pdf.text('X', 358, 510); // Coordenadas para el "Sí"
-    }
-    if (orgNo.checked) {
-    pdf.text('X', 448, 510); // Coordenadas para el "No"
-    }
-    pdf.setFontSize(10);
-    if (document.getElementById("normal").checked) {
-    pdf.text("X", 159, 563);  // Coordenadas para "normal"
-    } else if (document.getElementById("express").checked) {
-    pdf.text("X", 322, 563);  // Coordenadas para "express"
-    } else if (document.getElementById("urgente").checked) {
-    pdf.text("X", 431, 563);  // Coordenadas para "express"
-    }
- 
+    if (orgSi && orgSi.checked) pdf.text('X', 358, 510);
+    if (orgNo && orgNo.checked) pdf.text('X', 448, 510);
 
+    // Tipo servicio
+    pdf.setFontSize(10);
+    if (tipoServicio === 'urgente36')         pdf.text("X", 320, 562);
+    else if (tipoServicio === 'extraurgente') pdf.text("X", 429, 562);
+    else                                      pdf.text("X", 159, 562);
+
+    // Observaciones
     pdf.setFontSize(8);
-    const maxWidth = 450; // ancho máximo
-    const lines = pdf.splitTextToSize(anotaciones, maxWidth);  
-    pdf.text(lines, 125, 530); 
-   
+    const lines = pdf.splitTextToSize(anotaciones, 450);
+    pdf.text(lines, 125, 536);
+
+    // Fecha y responsable
     pdf.text(fechaenvio, 240, 600);
     pdf.text(enviante, 435, 600);
-    pdf.setFontSize(7);
-    pdf.setTextColor(150, 150, 150)
-    pdf.text(TextoFinal, 50, 760); 
 
     pdf.save("Solicitud_Analisis_PRIMORIS.pdf");
 }
